@@ -1,7 +1,7 @@
 import redis.asyncio as redis
 
 from app.domain.entities.message import ChatMessage
-from app.domain.exceptions.errors import SessionRepositoryError
+from app.domain.exceptions.errors import SessionStoreError
 from app.ports.outbound.session_repository import SessionRepositoryPort
 
 
@@ -16,7 +16,7 @@ class RedisSessionRepository(SessionRepositoryPort):
             values = await self._client.lrange(key, 0, -1)
             return [ChatMessage.model_validate_json(item) for item in values]
         except Exception as exc:
-            raise SessionRepositoryError("failed to load session history") from exc
+            raise SessionStoreError("failed to load session history") from exc
 
     async def append_messages(self, session_id: str, messages: list[ChatMessage]) -> None:
         key = self._key(session_id)
@@ -26,7 +26,7 @@ class RedisSessionRepository(SessionRepositoryPort):
                 await self._client.rpush(key, *encoded)
                 await self._client.expire(key, self._ttl_sec)
         except Exception as exc:
-            raise SessionRepositoryError("failed to append session history") from exc
+            raise SessionStoreError("failed to append session history") from exc
 
     async def set_history(self, session_id: str, messages: list[ChatMessage]) -> None:
         key = self._key(session_id)
@@ -39,7 +39,7 @@ class RedisSessionRepository(SessionRepositoryPort):
                 pipe.expire(key, self._ttl_sec)
             await pipe.execute()
         except Exception as exc:
-            raise SessionRepositoryError("failed to set session history") from exc
+            raise SessionStoreError("failed to set session history") from exc
 
     async def ping(self) -> bool:
         try:

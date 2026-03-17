@@ -1,9 +1,12 @@
 from pydantic import BaseModel
 
 
-class ApiErrorResponse(BaseModel):
-    status: str = "error"
+class ErrorDetail(BaseModel):
+    code: str
     message: str
     request_id: str
     trace_id: str
-    error_code: str
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorDetail
