@@ -52,6 +52,11 @@ def _build_llm_client(settings: Settings) -> LLMClientPort:
     if settings.LLM_PROVIDER == "stub":
         return VLLMStubClient()
     if settings.LLM_PROVIDER == "vllm":
+        llm_retry_count = (
+            settings.LLM_HTTP_RETRY_COUNT
+            if settings.LLM_HTTP_RETRY_COUNT >= 0
+            else settings.HTTP_RETRY_COUNT
+        )
         return VLLMHTTPClient(
             base_url=settings.VLLM_BASE_URL,
             model=settings.VLLM_MODEL,
@@ -59,10 +64,12 @@ def _build_llm_client(settings: Settings) -> LLMClientPort:
             max_tokens=settings.VLLM_MAX_TOKENS,
             connect_timeout_sec=settings.VLLM_CONNECT_TIMEOUT_SEC,
             read_timeout_sec=settings.VLLM_READ_TIMEOUT_SEC,
-            retry_count=settings.HTTP_RETRY_COUNT,
+            retry_count=llm_retry_count,
             retry_base_delay_sec=settings.HTTP_RETRY_BASE_DELAY_SEC,
             retry_max_delay_sec=settings.HTTP_RETRY_MAX_DELAY_SEC,
-            retry_jitter_sec=settings.HTTP_RETRY_JITTER_SEC,
+            retry_jitter_enabled=settings.HTTP_RETRY_JITTER_ENABLED,
+            retry_jitter_ratio=settings.HTTP_RETRY_JITTER_RATIO,
+            retry_total_timeout_sec=settings.HTTP_RETRY_TOTAL_TIMEOUT_SEC,
         )
     raise ValueError(f"unsupported LLM_PROVIDER: {settings.LLM_PROVIDER}")
 
@@ -71,14 +78,22 @@ def _build_tts_client(settings: Settings) -> TTSClientPort:
     if settings.TTS_PROVIDER == "stub":
         return GPTSoVITSStubClient()
     if settings.TTS_PROVIDER == "gptsovits":
+        tts_retry_count = (
+            settings.TTS_HTTP_RETRY_COUNT
+            if settings.TTS_HTTP_RETRY_COUNT >= 0
+            else settings.HTTP_RETRY_COUNT
+        )
         return GPTSoVITSHTTPClient(
             base_url=settings.GPT_SOVITS_BASE_URL,
             connect_timeout_sec=settings.GPT_SOVITS_CONNECT_TIMEOUT_SEC,
             read_timeout_sec=settings.GPT_SOVITS_READ_TIMEOUT_SEC,
-            retry_count=settings.HTTP_RETRY_COUNT,
+            retry_count=tts_retry_count,
             retry_base_delay_sec=settings.HTTP_RETRY_BASE_DELAY_SEC,
             retry_max_delay_sec=settings.HTTP_RETRY_MAX_DELAY_SEC,
-            retry_jitter_sec=settings.HTTP_RETRY_JITTER_SEC,
+            retry_jitter_enabled=settings.HTTP_RETRY_JITTER_ENABLED,
+            retry_jitter_ratio=settings.HTTP_RETRY_JITTER_RATIO,
+            retry_total_timeout_sec=settings.HTTP_RETRY_TOTAL_TIMEOUT_SEC,
+            synthesis_idempotent=settings.TTS_SYNTHESIS_IDEMPOTENT,
         )
     raise ValueError(f"unsupported TTS_PROVIDER: {settings.TTS_PROVIDER}")
 

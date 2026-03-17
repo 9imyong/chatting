@@ -33,7 +33,12 @@ class Settings(BaseSettings):
     HTTP_RETRY_COUNT: int = 2
     HTTP_RETRY_BASE_DELAY_SEC: float = 0.2
     HTTP_RETRY_MAX_DELAY_SEC: float = 2.0
-    HTTP_RETRY_JITTER_SEC: float = 0.1
+    HTTP_RETRY_JITTER_ENABLED: bool = True
+    HTTP_RETRY_JITTER_RATIO: float = 0.25
+    HTTP_RETRY_TOTAL_TIMEOUT_SEC: float = 8.0
+    LLM_HTTP_RETRY_COUNT: int = -1
+    TTS_HTTP_RETRY_COUNT: int = -1
+    TTS_SYNTHESIS_IDEMPOTENT: bool = False
 
     REDIS_URL: str = "redis://localhost:6379/0"
     SESSION_TTL_SEC: int = 3600

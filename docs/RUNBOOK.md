@@ -23,6 +23,13 @@
 3. 5xx -> `*_BAD_RESPONSE`
 4. invalid json/body -> `*_BAD_RESPONSE`
 
+## Retry Policy Summary
+1. 상세 정책은 [docs/RETRY_POLICY.md](/Users/9imyong/workspace/chatting/docs/RETRY_POLICY.md) 기준을 따른다.
+2. `429`는 provider 공통 retry 대상이다.
+3. `500/502/503/504`는 idempotent 호출만 retry 허용한다.
+4. `400/401/403/404`, invalid body/json은 non-retryable로 즉시 실패 처리한다.
+5. timeout은 connect/read/total을 구분하며, `HTTP_RETRY_TOTAL_TIMEOUT_SEC` budget 내에서만 재시도한다.
+
 ## Dashboard Draft
 1. API Request Overview
    - `app_request_total` by `method/path/status`
@@ -64,6 +71,8 @@
    - 대응: metrics label은 provider/operation/result/path 정도로 제한
 4. 과도한 로그량 증가 가능
    - 대응: debug/info/error 분리 및 payload 미기록
+5. 과도한 retry로 지연 증가 및 downstream 부하 가능
+   - 대응: total timeout budget, provider별 retry 상한, non-retryable 명시
 
 ## Postgres Expiration / Cleanup Strategy
 1. `SESSION_BACKEND=postgres`는 Redis TTL semantics를 그대로 모사하지 않는다.

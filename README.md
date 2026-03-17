@@ -107,6 +107,7 @@ pytest -q
 ## 운영 문서
 - API 명세: [docs/API_SPEC.md](/Users/9imyong/workspace/chatting/docs/API_SPEC.md)
 - 런북: [docs/RUNBOOK.md](/Users/9imyong/workspace/chatting/docs/RUNBOOK.md)
+- Retry 정책: [docs/RETRY_POLICY.md](/Users/9imyong/workspace/chatting/docs/RETRY_POLICY.md)
 
 ## Task 운영
 - 전체 실행순서: [docs/tasks/EXECUTION_ORDER.md](/Users/9imyong/workspace/chatting/docs/tasks/EXECUTION_ORDER.md)
