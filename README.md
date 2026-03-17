@@ -48,6 +48,33 @@ psql "$POSTGRES_DSN" -f deploy/migrations/0001_create_chat_session_tables.sql
 docker compose -f docker-compose.dev.yml up
 ```
 
+## 실서버(vLLM + GPT-SoVITS) 스택 기동
+실모델 기반 서버가 필요한 경우:
+```bash
+cp env/.env.real.example env/.env.real
+# env/.env.real의 모델/이미지/경로 값 수정
+ENV_FILE=env/.env.real bash scripts/run_real_stack.sh
+bash scripts/smoke_real_stack.sh
+```
+
+주의:
+1. vLLM은 GPU 런타임이 필요합니다.
+2. GPT-SoVITS 이미지/실행 명령은 운영 환경에 맞춰 `GPT_SOVITS_IMAGE`를 조정해야 합니다.
+
+## 외부 서버가 없을 때 연동 스모크
+실제 vLLM/GPT-SoVITS 서버가 없는 환경에서는 mock provider를 띄워
+`real adapter 경로`를 검증할 수 있습니다.
+
+```bash
+bash scripts/smoke_with_mock_providers.sh
+```
+
+이 스크립트는 아래를 순서대로 실행합니다.
+1. vLLM mock 서버 기동 (`/health`, `/v1/chat/completions`)
+2. GPT-SoVITS mock 서버 기동 (`/health`, `/synthesize`)
+3. API를 `LLM_PROVIDER=vllm`, `TTS_PROVIDER=gptsovits` 모드로 기동
+4. `/ready`, `/api/v1/chat`, `/api/v1/chat/stream`, `/metrics` 스모크 호출
+
 ## API 예시
 
 ### Request (text only)

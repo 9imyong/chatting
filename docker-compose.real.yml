@@ -1,0 +1,61 @@
+services:
+  api:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./:/app
+    command: >
+      sh -c "pip install -e .[dev] && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    env_file:
+      - env/.env.real.example
+    environment:
+      LLM_PROVIDER: vllm
+      TTS_PROVIDER: gptsovits
+      SESSION_BACKEND: ${SESSION_BACKEND:-redis}
+      VLLM_BASE_URL: http://vllm:8000
+      GPT_SOVITS_BASE_URL: http://gpt-sovits:9880
+    ports:
+      - "8000:8000"
+    depends_on:
+      - redis
+      - postgres
+      - vllm
+      - gpt-sovits
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+
+  vllm:
+    image: vllm/vllm-openai:latest
+    shm_size: "16gb"
+    command: >
+      --model ${VLLM_MODEL_ID:Qwen/Qwen3-0.6B}
+      --host 0.0.0.0
+      --port 8000
+      --max-model-len ${VLLM_MAX_MODEL_LEN:-4096}
+      --gpu-memory-utilization ${VLLM_GPU_MEMORY_UTILIZATION:-0.9}
+    volumes:
+      - ${HF_CACHE_DIR:-./models/hf-cache}:/root/.cache/huggingface
+    ports:
+      - "8001:8000"
+
+  # GPT-SoVITS 공식/운영 이미지에 맞게 GPT_SOVITS_IMAGE 값을 조정하세요.
+  gpt-sovits:
+    image: ${GPT_SOVITS_IMAGE:-breakstring/gpt-sovits:latest}
+    command: >
+      bash -lc "python api.py --host 0.0.0.0 --port 9880"
+    volumes:
+      - ${GPT_SOVITS_MODEL_DIR:-./models/gpt-sovits}:/workspace/models
+    ports:
+      - "9880:9880"
