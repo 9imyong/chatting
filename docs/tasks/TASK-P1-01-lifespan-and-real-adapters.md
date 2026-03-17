@@ -1,4 +1,9 @@
-# TASK-20260317-chat-p1-lifespan-and-real-adapters
+# TASK-P1-01-lifespan-and-real-adapters
+
+## 상태
+- STATUS: DONE
+- 실행 순서: P1-1
+
 
 ## 1. 개요
 - 목적: P0 스캐폴딩 이후 실제 운영 가능한 P1 구조로 전환

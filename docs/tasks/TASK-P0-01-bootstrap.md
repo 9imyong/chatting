@@ -1,4 +1,9 @@
-# TASK-20260317-chat-p0-bootstrap
+# TASK-P0-01-bootstrap
+
+## 상태
+- STATUS: DONE
+- 실행 순서: P0-1
+
 
 ## 1. 개요
 - 목적: vLLM + GPT-SoVITS 기반 FastAPI 백엔드 P0 스캐폴딩 구현

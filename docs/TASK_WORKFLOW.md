@@ -12,8 +12,8 @@
 
 ## Task 파일 규칙
 - 경로: `docs/tasks/`
-- 파일명: `TASK-YYYYMMDD-<slug>.md`
-- 예시: `TASK-20260317-chat-p0-bootstrap.md`
+- 파일명: `TASK-P<phase>-<order>-<slug>.md`
+- 예시: `TASK-P0-01-bootstrap.md`
 
 ## 최소 체크리스트
 1. 계층 분리(api/application/domain/adapters) 준수
