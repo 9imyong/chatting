@@ -28,6 +28,8 @@ STREAM_REQUEST_TOTAL = Counter("chat_stream_request_total", "Streaming request c
 STREAM_DURATION = Histogram("chat_stream_duration_seconds", "Streaming request duration", ["result"])
 STREAM_DISCONNECT_TOTAL = Counter("chat_stream_disconnect_total", "Streaming disconnect count", ["reason"])
 STREAM_ERROR_TOTAL = Counter("chat_stream_error_total", "Streaming error count", ["error_code"])
+AUTH_REQUEST_TOTAL = Counter("auth_request_total", "Authentication request count", ["result"])
+RATE_LIMIT_TOTAL = Counter("rate_limit_total", "Rate limit decision count", ["tenant", "result"])
 
 
 class MetricsMiddleware(BaseHTTPMiddleware):
@@ -80,6 +82,14 @@ def observe_stream_disconnect(reason: str) -> None:
 
 def observe_stream_error(error_code: str) -> None:
     STREAM_ERROR_TOTAL.labels(error_code=error_code).inc()
+
+
+def observe_auth_result(result: str) -> None:
+    AUTH_REQUEST_TOTAL.labels(result=result).inc()
+
+
+def observe_rate_limit(tenant: str, result: str) -> None:
+    RATE_LIMIT_TOTAL.labels(tenant=tenant, result=result).inc()
 
 
 def metrics_response() -> Response:

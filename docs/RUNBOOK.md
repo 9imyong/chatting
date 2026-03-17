@@ -16,6 +16,10 @@
 4. Session Store 점검
    - `SESSION_STORE_ERROR`: Redis 연결, 인증, TTL 설정 확인
    - `SESSION_BACKEND=postgres` 인 경우 DSN/연결 가능 여부, migration 적용 여부 확인
+5. Auth/Rate Limit 점검
+   - `UNAUTHORIZED`: Authorization 헤더 누락/스킴 오류
+   - `FORBIDDEN`: tenant api key 불일치
+   - `RATE_LIMIT_EXCEEDED`: tenant quota 초과
 
 ## Provider Failure Mapping
 1. timeout -> `*_TIMEOUT`
@@ -63,7 +67,7 @@
 
 ## Logging Standard
 1. 공통 필드
-   - `request_id`, `trace_id`, `session_id(optional)`, `provider`, `path`, `latency_ms`, `result`, `status`
+   - `request_id`, `trace_id`, `tenant_id(optional)`, `session_id(optional)`, `provider`, `path`, `latency_ms`, `result`, `status`
 2. 로그 레벨 기준
    - INFO: 정상 흐름(inbound request, provider success)
    - ERROR: 예외/실패(provider timeout, invalid response)
@@ -85,6 +89,17 @@
    - 대응: stream timeout, worker 수, 프록시 idle timeout 튜닝
 7. 느린 클라이언트로 인한 backpressure 이슈 가능
    - 대응: chunk 크기 조정 및 연결 상한 운영
+8. 잘못된 tenant limit 정책으로 정상 요청 차단 가능
+   - 대응: tenant override 변경 전 staging 검증, 점진적 적용
+9. 외부 토큰 발급/검증 의존성 도입 시 장애 전파 가능
+   - 대응: fail-open/fail-close 정책 명시 및 대체 인증 경로 준비
+
+## Auth / Tenant Rate Limit 운영 기준
+1. 인증은 `Authorization: Bearer <tenant_api_key>` 기반으로 처리한다.
+2. `AUTH_ENABLED=false` 환경에서는 `AUTH_DEFAULT_TENANT`로 bypass 처리한다.
+3. rate limit은 tenant 단위(`RATE_LIMIT_REQUESTS_PER_WINDOW`)로 적용한다.
+4. tenant override는 `RATE_LIMIT_TENANT_OVERRIDES`를 사용한다.
+5. rate limit backend 장애 시 `RATE_LIMIT_FAIL_OPEN=true`면 요청을 허용한다.
 
 ## Streaming 운영 기준
 1. endpoint는 `POST /api/v1/chat/stream` 이며 SSE(`text/event-stream`)를 사용한다.

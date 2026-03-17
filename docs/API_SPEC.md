@@ -2,6 +2,9 @@
 
 ## POST /api/v1/chat
 
+### Auth Header
+- `Authorization: Bearer <tenant_api_key>` (when `AUTH_ENABLED=true`)
+
 ### Request
 ```json
 {
@@ -16,6 +19,9 @@
 ```
 
 ## POST /api/v1/chat/stream
+
+### Auth Header
+- `Authorization: Bearer <tenant_api_key>` (when `AUTH_ENABLED=true`)
 
 ### Request
 ```json
@@ -52,6 +58,7 @@ data: {"error":{"code":"LLM_TIMEOUT","message":"llm provider read timeout"}}
 1. 1차 구현은 text streaming만 지원한다 (`response_mode=text`).
 2. 재연결은 새 요청으로 처리한다(중간 이어받기 미지원).
 3. server-side resumable stream은 현재 범위에서 지원하지 않는다.
+4. 인증/tenant rate limit 정책은 `/api/v1/chat`과 동일하게 적용된다.
 
 ### Success Response
 ```json
@@ -121,6 +128,9 @@ data: {"error":{"code":"LLM_TIMEOUT","message":"llm provider read timeout"}}
 - `SESSION_STORE_ERROR`
 - `INTERNAL_ERROR`
 - `INVALID_ARGUMENT`
+- `UNAUTHORIZED`
+- `FORBIDDEN`
+- `RATE_LIMIT_EXCEEDED`
 
 ## Session Backend Notes
 - `SESSION_BACKEND`는 `memory | redis | postgres`를 지원한다.

@@ -3,13 +3,16 @@ from dataclasses import dataclass
 from app.adapters.outbound.gptsovits_client_stub import GPTSoVITSStubClient
 from app.adapters.outbound.gptsovits_http_client import GPTSoVITSHTTPClient
 from app.adapters.outbound.inmemory_session_repository import InMemorySessionRepository
+from app.adapters.outbound.inmemory_rate_limiter import InMemoryRateLimiter
 from app.adapters.outbound.postgres_session_repository import PostgresSessionRepository
+from app.adapters.outbound.redis_rate_limiter import RedisRateLimiter
 from app.adapters.outbound.redis_session_repository import RedisSessionRepository
 from app.adapters.outbound.vllm_client_stub import VLLMStubClient
 from app.adapters.outbound.vllm_http_client import VLLMHTTPClient
 from app.application.services.chat_orchestration_service import ChatOrchestrationService
 from app.common.config.settings import Settings
 from app.ports.outbound.llm_client import LLMClientPort
+from app.ports.outbound.rate_limiter import RateLimiterPort
 from app.ports.outbound.session_repository import SessionRepositoryPort
 from app.ports.outbound.tts_client import TTSClientPort
 
@@ -20,11 +23,13 @@ class AppContainer:
     llm_client: LLMClientPort
     tts_client: TTSClientPort
     session_repo: SessionRepositoryPort
+    rate_limiter: RateLimiterPort
     chat_service: ChatOrchestrationService
 
 
 async def build_container(settings: Settings) -> AppContainer:
     session_repo = _build_session_repo(settings)
+    rate_limiter = _build_rate_limiter(settings)
     llm_client = _build_llm_client(settings)
     tts_client = _build_tts_client(settings)
     chat_service = ChatOrchestrationService(
@@ -39,6 +44,7 @@ async def build_container(settings: Settings) -> AppContainer:
         llm_client=llm_client,
         tts_client=tts_client,
         session_repo=session_repo,
+        rate_limiter=rate_limiter,
         chat_service=chat_service,
     )
 
@@ -47,6 +53,7 @@ async def close_container(container: AppContainer) -> None:
     await container.llm_client.close()
     await container.tts_client.close()
     await container.session_repo.close()
+    await container.rate_limiter.close()
 
 
 def _build_llm_client(settings: Settings) -> LLMClientPort:
@@ -113,3 +120,11 @@ def _build_session_repo(settings: Settings) -> SessionRepositoryPort:
             max_history_turns=settings.MAX_HISTORY_TURNS,
         )
     raise ValueError(f"unsupported SESSION_BACKEND: {settings.SESSION_BACKEND}")
+
+
+def _build_rate_limiter(settings: Settings) -> RateLimiterPort:
+    if settings.RATE_LIMIT_BACKEND == "memory":
+        return InMemoryRateLimiter()
+    if settings.RATE_LIMIT_BACKEND == "redis":
+        return RedisRateLimiter(redis_url=settings.REDIS_URL)
+    raise ValueError(f"unsupported RATE_LIMIT_BACKEND: {settings.RATE_LIMIT_BACKEND}")

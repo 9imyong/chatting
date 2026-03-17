@@ -106,6 +106,12 @@ curl -N -X POST http://localhost:8000/api/v1/chat/stream \
   -d '{"session_id":"session-001","message":"안녕","response_mode":"text"}'
 ```
 
+## Auth / Rate Limit (P3-3)
+- `AUTH_ENABLED=true`일 때 `Authorization: Bearer <tenant_api_key>` 필요
+- `AUTH_TENANT_API_KEYS` 형식: `tenant_a:token_a,tenant_b:token_b`
+- tenant별 rate limit 기본값: `RATE_LIMIT_REQUESTS_PER_WINDOW`
+- tenant별 override: `RATE_LIMIT_TENANT_OVERRIDES`
+
 ## 테스트
 ```bash
 pytest -q

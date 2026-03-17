@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     STREAM_TOTAL_TIMEOUT_SEC: float = 30.0
     STREAM_CHUNK_SIZE: int = 12
 
+    AUTH_ENABLED: bool = False
+    AUTH_DEFAULT_TENANT: str = "public"
+    AUTH_TENANT_API_KEYS: str = ""
+
+    RATE_LIMIT_ENABLED: bool = False
+    RATE_LIMIT_BACKEND: str = "memory"  # memory | redis
+    RATE_LIMIT_WINDOW_SEC: int = 60
+    RATE_LIMIT_REQUESTS_PER_WINDOW: int = 60
+    RATE_LIMIT_TENANT_OVERRIDES: str = ""
+    RATE_LIMIT_FAIL_OPEN: bool = True
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

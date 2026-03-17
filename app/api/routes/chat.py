@@ -3,9 +3,10 @@ import json
 import asyncio
 import time
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import StreamingResponse
 
+from app.api.deps.auth import TenantAccessContext, auth_dependency
 from app.api.deps.providers import get_chat_service
 from app.api.schemas.chat import ChatData, ChatRequest, ChatResponse
 from app.api.schemas.streaming import ChatStreamRequest
@@ -29,6 +30,9 @@ logger = logging.getLogger(__name__)
 @router.post("/chat", response_model=ChatResponse)
 async def chat(
     payload: ChatRequest,
+    request: Request,
+    response: Response,
+    access: TenantAccessContext = Depends(auth_dependency("chat_sync")),
     service: ChatOrchestrationService = Depends(get_chat_service),
 ) -> ChatResponse:
     started = time.perf_counter()
@@ -49,12 +53,18 @@ async def chat(
         logger,
         logging.INFO,
         "chat request processed",
+        tenant_id=access.tenant_id,
         session_id=payload.session_id,
         path="/api/v1/chat",
         latency_ms=round(duration * 1000, 2),
         result="success",
         status="ok",
     )
+
+    if hasattr(request.state, "rate_limit_limit"):
+        response.headers["X-RateLimit-Limit"] = str(request.state.rate_limit_limit)
+        response.headers["X-RateLimit-Remaining"] = str(request.state.rate_limit_remaining)
+        response.headers["X-RateLimit-Reset"] = str(request.state.rate_limit_reset)
 
     return ChatResponse(
         request_id=request_id_ctx.get(),
@@ -75,6 +85,7 @@ def _format_sse(event: str, data: dict) -> str:
 async def chat_stream(
     payload: ChatStreamRequest,
     request: Request,
+    access: TenantAccessContext = Depends(auth_dependency("chat_stream")),
     service: ChatOrchestrationService = Depends(get_chat_service),
 ) -> StreamingResponse:
     settings = get_settings()
@@ -91,6 +102,7 @@ async def chat_stream(
             logger,
             logging.INFO,
             "stream request started",
+            tenant_id=access.tenant_id,
             session_id=payload.session_id,
             path=path,
             result="success",
@@ -111,6 +123,7 @@ async def chat_stream(
                         logger,
                         logging.WARNING,
                         "stream client disconnected",
+                        tenant_id=access.tenant_id,
                         session_id=payload.session_id,
                         path=path,
                         result="disconnect",
@@ -146,6 +159,7 @@ async def chat_stream(
                 logger,
                 logging.WARNING,
                 "stream cancelled",
+                tenant_id=access.tenant_id,
                 session_id=payload.session_id,
                 path=path,
                 result="disconnect",
@@ -161,6 +175,7 @@ async def chat_stream(
                 logger,
                 logging.INFO,
                 "stream request completed",
+                tenant_id=access.tenant_id,
                 session_id=payload.session_id,
                 path=path,
                 latency_ms=round(duration * 1000, 2),
@@ -169,12 +184,18 @@ async def chat_stream(
                 stream_status=result,
             )
 
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    if hasattr(request.state, "rate_limit_limit"):
+        headers["X-RateLimit-Limit"] = str(request.state.rate_limit_limit)
+        headers["X-RateLimit-Remaining"] = str(request.state.rate_limit_remaining)
+        headers["X-RateLimit-Reset"] = str(request.state.rate_limit_reset)
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
+        headers=headers,
     )

@@ -99,3 +99,22 @@ def test_ready_degraded_when_postgres_dependency_down() -> None:
     assert body["dependencies"]["tts"]["status"] == "ok"
     assert body["dependencies"]["session_store"]["status"] == "fail"
     assert body["dependencies"]["session_store"]["reason"] is not None
+
+
+def test_ready_includes_rate_limiter_when_enabled() -> None:
+    ready_settings = Settings(
+        LLM_PROVIDER="stub",
+        TTS_PROVIDER="stub",
+        SESSION_BACKEND="memory",
+        RATE_LIMIT_ENABLED=True,
+        RATE_LIMIT_BACKEND="memory",
+    )
+    ready_app = create_app(ready_settings)
+
+    with TestClient(ready_app) as client:
+        ready = client.get("/ready")
+
+    assert ready.status_code == 200
+    body = ready.json()
+    assert body["status"] == "ok"
+    assert body["dependencies"]["rate_limiter"]["status"] == "ok"

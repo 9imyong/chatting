@@ -85,3 +85,21 @@ def test_chat_stream_disconnect_increments_metric() -> None:
 
     assert metrics.status_code == 200
     assert "chat_stream_disconnect_total" in metrics.text
+
+
+def test_chat_stream_requires_authorization_when_enabled() -> None:
+    secured_app = create_app(
+        Settings(
+            AUTH_ENABLED=True,
+            AUTH_TENANT_API_KEYS="tenant_a:token_a",
+            RATE_LIMIT_ENABLED=False,
+        )
+    )
+    with TestClient(secured_app) as client:
+        resp = client.post(
+            "/api/v1/chat/stream",
+            json={"session_id": "stream-auth", "message": "hello", "response_mode": "text"},
+        )
+
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHORIZED"

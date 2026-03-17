@@ -27,6 +27,7 @@ class JsonFormatter(logging.Formatter):
             "message": record.getMessage(),
             "request_id": request_id_ctx.get(),
             "trace_id": trace_id_ctx.get(),
+            "tenant_id": extra_fields.get("tenant_id"),
             "session_id": extra_fields.get("session_id"),
             "provider": extra_fields.get("provider"),
             "path": extra_fields.get("path"),
