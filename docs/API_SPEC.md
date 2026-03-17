@@ -15,6 +15,44 @@
 }
 ```
 
+## POST /api/v1/chat/stream
+
+### Request
+```json
+{
+  "session_id": "session-001",
+  "message": "안녕",
+  "response_mode": "text"
+}
+```
+
+### Response
+- `Content-Type: text/event-stream`
+- SSE event 순서: `start` -> `token`(0..N) -> `done`
+- 실패 시: `start` -> `error`
+
+### SSE Event Examples
+```text
+event: start
+data: {"request_id":"req-...","trace_id":"trace-...","session_id":"session-001"}
+
+event: token
+data: {"delta":"안녕","sequence":1}
+
+event: done
+data: {"finish_reason":"stop","usage":null}
+```
+
+```text
+event: error
+data: {"error":{"code":"LLM_TIMEOUT","message":"llm provider read timeout"}}
+```
+
+### Streaming Policy
+1. 1차 구현은 text streaming만 지원한다 (`response_mode=text`).
+2. 재연결은 새 요청으로 처리한다(중간 이어받기 미지원).
+3. server-side resumable stream은 현재 범위에서 지원하지 않는다.
+
 ### Success Response
 ```json
 {

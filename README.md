@@ -99,6 +99,13 @@ docker compose -f docker-compose.dev.yml up
 }
 ```
 
+### Streaming (SSE)
+```bash
+curl -N -X POST http://localhost:8000/api/v1/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{"session_id":"session-001","message":"안녕","response_mode":"text"}'
+```
+
 ## 테스트
 ```bash
 pytest -q
@@ -108,6 +115,7 @@ pytest -q
 - API 명세: [docs/API_SPEC.md](/Users/9imyong/workspace/chatting/docs/API_SPEC.md)
 - 런북: [docs/RUNBOOK.md](/Users/9imyong/workspace/chatting/docs/RUNBOOK.md)
 - Retry 정책: [docs/RETRY_POLICY.md](/Users/9imyong/workspace/chatting/docs/RETRY_POLICY.md)
+- Streaming 가이드: [docs/STREAMING.md](/Users/9imyong/workspace/chatting/docs/STREAMING.md)
 
 ## Task 운영
 - 전체 실행순서: [docs/tasks/EXECUTION_ORDER.md](/Users/9imyong/workspace/chatting/docs/tasks/EXECUTION_ORDER.md)

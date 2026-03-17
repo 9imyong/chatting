@@ -49,6 +49,8 @@ class Settings(BaseSettings):
     MAX_HISTORY_TURNS: int = 10
 
     REQUEST_TIMEOUT_SEC: float = 15.0
+    STREAM_TOTAL_TIMEOUT_SEC: float = 30.0
+    STREAM_CHUNK_SIZE: int = 12
 
 
 @lru_cache(maxsize=1)

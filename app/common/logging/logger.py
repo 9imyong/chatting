@@ -36,6 +36,8 @@ class JsonFormatter(logging.Formatter):
             "retry_attempt": extra_fields.get("retry_attempt"),
             "retry_delay_ms": extra_fields.get("retry_delay_ms"),
             "retry_reason": extra_fields.get("retry_reason"),
+            "stream_status": extra_fields.get("stream_status"),
+            "disconnect_reason": extra_fields.get("disconnect_reason"),
         }
         return json.dumps(payload, ensure_ascii=False)
 

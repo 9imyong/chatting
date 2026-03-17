@@ -42,6 +42,12 @@
    - `/ready` status trend (`ok/degraded/fail`)
 4. Readiness Probe
    - `readiness_probe_latency_seconds` by `dependency/result`
+5. Streaming
+   - `chat_stream_active_connections`
+   - `chat_stream_request_total` by `result`
+   - `chat_stream_duration_seconds` by `result`
+   - `chat_stream_disconnect_total` by `reason`
+   - `chat_stream_error_total` by `error_code`
 
 ## Alert Draft
 1. Readiness fail 지속
@@ -52,6 +58,8 @@
    - 조건: 5xx 비율 임계치 초과
 4. Latency 증가
    - 조건: chat/api p95 latency가 기준치 이상 지속
+5. Streaming 연결 이상
+   - 조건: `chat_stream_active_connections` 급증 + `chat_stream_disconnect_total` 급증 동시 발생
 
 ## Logging Standard
 1. 공통 필드
@@ -73,6 +81,16 @@
    - 대응: debug/info/error 분리 및 payload 미기록
 5. 과도한 retry로 지연 증가 및 downstream 부하 가능
    - 대응: total timeout budget, provider별 retry 상한, non-retryable 명시
+6. 연결 수 증가로 인한 스트리밍 자원 압박 가능
+   - 대응: stream timeout, worker 수, 프록시 idle timeout 튜닝
+7. 느린 클라이언트로 인한 backpressure 이슈 가능
+   - 대응: chunk 크기 조정 및 연결 상한 운영
+
+## Streaming 운영 기준
+1. endpoint는 `POST /api/v1/chat/stream` 이며 SSE(`text/event-stream`)를 사용한다.
+2. 이벤트 순서는 `start -> token* -> done` 또는 `start -> error`를 따른다.
+3. 재연결은 새 요청으로 처리한다(중간 이어받기 미지원).
+4. timeout/disconnect 정책 상세는 [docs/STREAMING.md](/Users/9imyong/workspace/chatting/docs/STREAMING.md) 참고.
 
 ## Postgres Expiration / Cleanup Strategy
 1. `SESSION_BACKEND=postgres`는 Redis TTL semantics를 그대로 모사하지 않는다.

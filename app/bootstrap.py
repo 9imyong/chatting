@@ -32,6 +32,7 @@ async def build_container(settings: Settings) -> AppContainer:
         tts_client=tts_client,
         session_repo=session_repo,
         max_history_turns=settings.MAX_HISTORY_TURNS,
+        stream_chunk_size=settings.STREAM_CHUNK_SIZE,
     )
     return AppContainer(
         settings=settings,

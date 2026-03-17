@@ -13,6 +13,7 @@ async def test_chat_service_text_only() -> None:
         tts_client=GPTSoVITSStubClient(),
         session_repo=InMemorySessionRepository(),
         max_history_turns=10,
+        stream_chunk_size=12,
     )
 
     result = await service.chat("s1", "hello", generate_audio=False, voice_id=None)
@@ -29,6 +30,7 @@ async def test_chat_service_stores_session_history() -> None:
         tts_client=GPTSoVITSStubClient(),
         session_repo=repo,
         max_history_turns=10,
+        stream_chunk_size=12,
     )
 
     await service.chat("s2", "first", generate_audio=False, voice_id=None)
@@ -48,6 +50,7 @@ async def test_chat_service_trims_history_by_turn() -> None:
         tts_client=GPTSoVITSStubClient(),
         session_repo=repo,
         max_history_turns=1,
+        stream_chunk_size=12,
     )
 
     await service.chat("s3", "first", generate_audio=False, voice_id=None)

@@ -222,6 +222,14 @@ class VLLMHTTPClient(LLMClientPort):
         except Exception as exc:
             raise LLMBadResponseError("llm generation failed") from exc
 
+    async def generate_stream(self, messages: list[ChatMessage]):
+        # Phase-1: fallback streaming from full text when provider-native streaming
+        # contract is unavailable or not enabled.
+        text = await self.generate(messages)
+        chunk_size = 12
+        for i in range(0, len(text), chunk_size):
+            yield text[i : i + chunk_size]
+
     def _build_request_payload(self, messages: list[ChatMessage]) -> dict[str, Any]:
         return {
             "model": self._model,
