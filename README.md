@@ -1,4 +1,4 @@
-# Chat Model Serving Backend (P0)
+# Chat Model Serving Backend
 
 vLLM 기반 텍스트 생성과 GPT-SoVITS 기반 음성 합성을 결합한 FastAPI 백엔드의 최소 동작 버전입니다.
 
@@ -25,6 +25,22 @@ source .venv/bin/activate
 pip install -e .[dev]
 cp env/.env.example env/.env.dev
 uvicorn app.main:app --reload --port 8000
+```
+
+## Session Backend 선택
+- `SESSION_BACKEND=memory`: 개발/테스트 기본값
+- `SESSION_BACKEND=redis`: 빠른 임시 저장, TTL 기반 세션
+- `SESSION_BACKEND=postgres`: 내구성 저장, `expiration/cleanup strategy` 기반 세션
+
+PostgreSQL backend 사용 예시:
+```bash
+export SESSION_BACKEND=postgres
+export POSTGRES_DSN=postgresql://app:app@localhost:5432/app
+```
+
+마이그레이션 SQL 적용 예시:
+```bash
+psql "$POSTGRES_DSN" -f deploy/migrations/0001_create_chat_session_tables.sql
 ```
 
 ## Docker Compose
@@ -88,8 +104,13 @@ docker compose -f docker-compose.dev.yml up
 pytest -q
 ```
 
+## 운영 문서
+- API 명세: [docs/API_SPEC.md](/Users/9imyong/workspace/chatting/docs/API_SPEC.md)
+- 런북: [docs/RUNBOOK.md](/Users/9imyong/workspace/chatting/docs/RUNBOOK.md)
+
 ## Task 운영
+- 전체 실행순서: [docs/tasks/EXECUTION_ORDER.md](/Users/9imyong/workspace/chatting/docs/tasks/EXECUTION_ORDER.md)
 - 작업 단위 문서화 규칙: [docs/TASK_WORKFLOW.md](/Users/9imyong/workspace/chatting/docs/TASK_WORKFLOW.md)
 - Task 템플릿: [docs/tasks/TASK_TEMPLATE.md](/Users/9imyong/workspace/chatting/docs/tasks/TASK_TEMPLATE.md)
-- 최근 작업 기록(P0): [docs/tasks/TASK-20260317-chat-p0-bootstrap.md](/Users/9imyong/workspace/chatting/docs/tasks/TASK-20260317-chat-p0-bootstrap.md)
-- 최근 작업 기록(P1): [docs/tasks/TASK-20260317-chat-p1-lifespan-and-real-adapters.md](/Users/9imyong/workspace/chatting/docs/tasks/TASK-20260317-chat-p1-lifespan-and-real-adapters.md)
+- 최근 작업 기록(P0): [docs/tasks/TASK-P0-01-bootstrap.md](/Users/9imyong/workspace/chatting/docs/tasks/TASK-P0-01-bootstrap.md)
+- 최근 작업 기록(P1): [docs/tasks/TASK-P1-01-lifespan-and-real-adapters.md](/Users/9imyong/workspace/chatting/docs/tasks/TASK-P1-01-lifespan-and-real-adapters.md)

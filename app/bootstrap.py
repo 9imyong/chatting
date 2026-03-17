@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from app.adapters.outbound.gptsovits_client_stub import GPTSoVITSStubClient
 from app.adapters.outbound.gptsovits_http_client import GPTSoVITSHTTPClient
 from app.adapters.outbound.inmemory_session_repository import InMemorySessionRepository
+from app.adapters.outbound.postgres_session_repository import PostgresSessionRepository
 from app.adapters.outbound.redis_session_repository import RedisSessionRepository
 from app.adapters.outbound.vllm_client_stub import VLLMStubClient
 from app.adapters.outbound.vllm_http_client import VLLMHTTPClient
@@ -54,6 +55,8 @@ def _build_llm_client(settings: Settings) -> LLMClientPort:
         return VLLMHTTPClient(
             base_url=settings.VLLM_BASE_URL,
             model=settings.VLLM_MODEL,
+            temperature=settings.VLLM_TEMPERATURE,
+            max_tokens=settings.VLLM_MAX_TOKENS,
             connect_timeout_sec=settings.VLLM_CONNECT_TIMEOUT_SEC,
             read_timeout_sec=settings.VLLM_READ_TIMEOUT_SEC,
             retry_count=settings.HTTP_RETRY_COUNT,
@@ -85,4 +88,12 @@ def _build_session_repo(settings: Settings) -> SessionRepositoryPort:
         return InMemorySessionRepository()
     if settings.SESSION_BACKEND == "redis":
         return RedisSessionRepository(redis_url=settings.REDIS_URL, ttl_sec=settings.SESSION_TTL_SEC)
+    if settings.SESSION_BACKEND == "postgres":
+        return PostgresSessionRepository(
+            dsn=settings.POSTGRES_DSN,
+            min_pool_size=settings.POSTGRES_MIN_POOL_SIZE,
+            max_pool_size=settings.POSTGRES_MAX_POOL_SIZE,
+            expiration_sec=settings.SESSION_EXPIRATION_SEC,
+            max_history_turns=settings.MAX_HISTORY_TURNS,
+        )
     raise ValueError(f"unsupported SESSION_BACKEND: {settings.SESSION_BACKEND}")

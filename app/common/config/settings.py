@@ -17,10 +17,12 @@ class Settings(BaseSettings):
 
     LLM_PROVIDER: str = "stub"  # stub | vllm
     TTS_PROVIDER: str = "stub"  # stub | gptsovits
-    SESSION_BACKEND: str = "memory"  # memory | redis
+    SESSION_BACKEND: str = "memory"  # memory | redis | postgres
 
     VLLM_BASE_URL: str = "http://localhost:8001"
     VLLM_MODEL: str = "default"
+    VLLM_TEMPERATURE: float = 0.7
+    VLLM_MAX_TOKENS: int = 256
     VLLM_CONNECT_TIMEOUT_SEC: float = 2.0
     VLLM_READ_TIMEOUT_SEC: float = 10.0
 
@@ -35,6 +37,10 @@ class Settings(BaseSettings):
 
     REDIS_URL: str = "redis://localhost:6379/0"
     SESSION_TTL_SEC: int = 3600
+    POSTGRES_DSN: str = "postgresql://app:app@localhost:5432/app"
+    POSTGRES_MIN_POOL_SIZE: int = 1
+    POSTGRES_MAX_POOL_SIZE: int = 5
+    SESSION_EXPIRATION_SEC: int = 86400
     MAX_HISTORY_TURNS: int = 10
 
     REQUEST_TIMEOUT_SEC: float = 15.0
