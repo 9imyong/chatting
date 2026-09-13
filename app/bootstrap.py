@@ -1,3 +1,5 @@
+import asyncio
+import logging
 from dataclasses import dataclass
 
 from app.adapters.outbound.gptsovits_client_stub import GPTSoVITSStubClient
@@ -11,10 +13,14 @@ from app.adapters.outbound.vllm_client_stub import VLLMStubClient
 from app.adapters.outbound.vllm_http_client import VLLMHTTPClient
 from app.application.services.chat_orchestration_service import ChatOrchestrationService
 from app.common.config.settings import Settings
+from app.common.logging.logger import log_event
 from app.ports.outbound.llm_client import LLMClientPort
 from app.ports.outbound.rate_limiter import RateLimiterPort
 from app.ports.outbound.session_repository import SessionRepositoryPort
 from app.ports.outbound.tts_client import TTSClientPort
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -50,10 +56,28 @@ async def build_container(settings: Settings) -> AppContainer:
 
 
 async def close_container(container: AppContainer) -> None:
-    await container.llm_client.close()
-    await container.tts_client.close()
-    await container.session_repo.close()
-    await container.rate_limiter.close()
+    # 순차 await 이면 앞선 close() 가 실패했을 때 나머지가 닫히지 않고 누수된다.
+    results = await asyncio.gather(
+        container.llm_client.close(),
+        container.tts_client.close(),
+        container.session_repo.close(),
+        container.rate_limiter.close(),
+        return_exceptions=True,
+    )
+    for name, result in zip(
+        ("llm_client", "tts_client", "session_repo", "rate_limiter"), results
+    ):
+        if isinstance(result, BaseException):
+            log_event(
+                logger,
+                logging.WARNING,
+                "resource close failed during shutdown",
+                result="failure",
+                status="error",
+                error_type=type(result).__name__,
+                error_message=str(result),
+                provider=name,
+            )
 
 
 def _build_llm_client(settings: Settings) -> LLMClientPort:
