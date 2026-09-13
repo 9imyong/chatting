@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS_PER_WINDOW: int = 60
     RATE_LIMIT_TENANT_OVERRIDES: str = ""
     RATE_LIMIT_FAIL_OPEN: bool = True
+    # 인증 실패에 별도로 거는 상한. 없으면 API 키를 무제한으로 대입할 수 있다.
+    AUTH_FAILURE_LIMIT_PER_WINDOW: int = 10
 
 
 @lru_cache(maxsize=1)

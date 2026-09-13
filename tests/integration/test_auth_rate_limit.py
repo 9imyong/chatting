@@ -29,7 +29,11 @@ def test_chat_requires_authorization_when_enabled() -> None:
     assert resp.json()["error"]["code"] == "UNAUTHORIZED"
 
 
-def test_chat_forbidden_with_invalid_api_key() -> None:
+def test_chat_unauthorized_with_invalid_api_key() -> None:
+    """자격증명이 틀린 경우는 401 이다.
+
+    403 은 인증은 성공했으나 해당 리소스 권한이 없을 때 쓴다.
+    """
     app = create_app(
         Settings(
             AUTH_ENABLED=True,
@@ -44,8 +48,34 @@ def test_chat_forbidden_with_invalid_api_key() -> None:
             headers={"Authorization": "Bearer wrong"},
         )
 
-    assert resp.status_code == 403
-    assert resp.json()["error"]["code"] == "FORBIDDEN"
+    assert resp.status_code == 401
+    assert resp.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+def test_repeated_auth_failures_are_rate_limited() -> None:
+    """인증 실패에도 상한이 걸려야 API 키 대입을 막을 수 있다."""
+    app = create_app(
+        Settings(
+            AUTH_ENABLED=True,
+            AUTH_TENANT_API_KEYS="tenant_a:token_a",
+            RATE_LIMIT_ENABLED=True,
+            RATE_LIMIT_BACKEND="memory",
+            AUTH_FAILURE_LIMIT_PER_WINDOW=2,
+            RATE_LIMIT_WINDOW_SEC=60,
+        )
+    )
+    statuses = []
+    with TestClient(app) as client:
+        for _ in range(4):
+            resp = client.post(
+                "/api/v1/chat",
+                json=_chat_payload(),
+                headers={"Authorization": "Bearer wrong"},
+            )
+            statuses.append(resp.status_code)
+
+    assert statuses[0] == 401
+    assert 429 in statuses, f"인증 실패가 제한되지 않았다: {statuses}"
 
 
 def test_tenant_rate_limit_exceeded() -> None:

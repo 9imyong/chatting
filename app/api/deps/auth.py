@@ -3,13 +3,14 @@ from __future__ import annotations
 import logging
 import secrets
 from dataclasses import dataclass
+from functools import lru_cache
 
 from fastapi import Request
 
 from app.api.deps.providers import get_container
 from app.common.logging.logger import log_event
 from app.common.metrics.metrics import observe_auth_result, observe_rate_limit
-from app.domain.exceptions.errors import ForbiddenError, RateLimitExceededError, UnauthorizedError
+from app.domain.exceptions.errors import RateLimitExceededError, UnauthorizedError
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,7 @@ class TenantAccessContext:
     authenticated: bool
 
 
+@lru_cache(maxsize=8)
 def _parse_tenant_api_keys(raw: str) -> dict[str, str]:
     mapping: dict[str, str] = {}
     for item in raw.split(","):
@@ -34,6 +36,7 @@ def _parse_tenant_api_keys(raw: str) -> dict[str, str]:
     return mapping
 
 
+@lru_cache(maxsize=8)
 def _parse_tenant_overrides(raw: str) -> dict[str, int]:
     overrides: dict[str, int] = {}
     for item in raw.split(","):
@@ -54,6 +57,42 @@ def _parse_tenant_overrides(raw: str) -> dict[str, int]:
     return overrides
 
 
+async def _throttle_auth_failure(container, settings, request: Request, route_id: str) -> None:
+    """인증 실패에도 쿼터를 소비시킨다.
+
+    테넌트 레이트리밋은 인증 통과 후에만 적용되므로, 이 장치가 없으면 잘못된
+    API 키로는 시도 횟수 제한이 전혀 없어 키 대입 공격이 가능하다.
+    테넌트를 아직 모르는 단계라 클라이언트 IP 를 키로 쓴다.
+    """
+    if not settings.RATE_LIMIT_ENABLED:
+        return
+
+    client_host = request.client.host if request.client else "unknown"
+    principal = f"anon:{client_host}"
+    try:
+        decision = await container.rate_limiter.consume(
+            tenant_id=principal,
+            route=f"{route_id}:auth",
+            limit=settings.AUTH_FAILURE_LIMIT_PER_WINDOW,
+            window_sec=settings.RATE_LIMIT_WINDOW_SEC,
+        )
+    except Exception:
+        # 레이트리미터 장애가 인증 응답 자체를 바꾸지 않도록 통과시킨다.
+        return
+
+    if not decision.allowed:
+        observe_rate_limit(principal, "auth_rejected")
+        log_event(
+            logger,
+            logging.WARNING,
+            "too many failed authentication attempts",
+            path=request.url.path,
+            result="failure",
+            status="rate_limited",
+        )
+        raise RateLimitExceededError("too many failed authentication attempts")
+
+
 def auth_dependency(route_id: str):
     async def _dep(request: Request) -> TenantAccessContext:
         container = get_container(request)
@@ -65,10 +104,12 @@ def auth_dependency(route_id: str):
         if settings.AUTH_ENABLED:
             if not token_to_validate:
                 observe_auth_result("missing")
+                await _throttle_auth_failure(container, settings, request, route_id)
                 raise UnauthorizedError("missing authorization header")
 
             if not token_to_validate.lower().startswith("bearer "):
                 observe_auth_result("invalid_scheme")
+                await _throttle_auth_failure(container, settings, request, route_id)
                 raise UnauthorizedError("authorization header must use bearer scheme")
 
             bearer_token = token_to_validate.split(" ", 1)[1].strip()
@@ -82,8 +123,10 @@ def auth_dependency(route_id: str):
                 None,
             )
             if matched is None:
-                observe_auth_result("forbidden")
-                raise ForbiddenError("invalid tenant api key")
+                observe_auth_result("invalid_key")
+                await _throttle_auth_failure(container, settings, request, route_id)
+                # 자격증명이 틀린 것은 401 이다. 403 은 인증은 됐으나 권한이 없는 경우.
+                raise UnauthorizedError("invalid tenant api key")
 
             tenant = matched
             authenticated = True
