@@ -18,8 +18,8 @@ from app.common.metrics.metrics import MetricsMiddleware
 from app.common.tracing.context import request_id_ctx, trace_id_ctx
 from app.domain.exceptions.errors import (
     DomainError,
-    ExternalServiceError,
     ForbiddenError,
+    InfraError,
     RateLimitExceededError,
     UnauthorizedError,
     ValidationError,
@@ -95,10 +95,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status="error",
             result="failure",
         )
+        # 구체 타입을 먼저 검사하고, InfraError 는 남은 인프라 계열 전부를 받는다.
+        # SessionStoreError 처럼 ExternalServiceError 가 아닌 InfraError 하위 예외가
+        # 기본값 400 으로 떨어지면 DB 장애가 클라이언트 오류로 보고된다.
         status_code = 400
-        if isinstance(exc, (ExternalServiceError,)):
-            status_code = 503
-        elif isinstance(exc, ValidationError):
+        if isinstance(exc, ValidationError):
             status_code = 422
         elif isinstance(exc, UnauthorizedError):
             status_code = 401
@@ -106,6 +107,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code = 403
         elif isinstance(exc, RateLimitExceededError):
             status_code = 429
+        elif isinstance(exc, InfraError):
+            status_code = 503
         return JSONResponse(
             status_code=status_code,
             content={
