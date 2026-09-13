@@ -5,7 +5,7 @@ from typing import Any, AsyncIterator, Optional
 
 from pydantic import BaseModel
 
-from app.application.services.history_builder import build_prompt_history, trim_history_for_storage
+from app.application.services.history_builder import build_prompt_history
 from app.common.logging.logger import log_event
 from app.domain.entities.message import ChatMessage
 from app.domain.exceptions.errors import DomainError, ExternalServiceError, ValidationError
@@ -65,10 +65,7 @@ class ChatOrchestrationService:
         if not assistant_text:
             raise ExternalServiceError("empty response from llm")
 
-        current_user = ChatMessage(role="user", content=user_message)
-        assistant_msg = ChatMessage(role="assistant", content=assistant_text)
-        compacted = trim_history_for_storage([*history, current_user, assistant_msg], self._max_history_turns)
-        await self._session_repo.set_history(session_id, compacted)
+        await self._store_turn(session_id, user_message, assistant_text)
 
         if not generate_audio:
             return ChatResult(text=assistant_text)
@@ -131,10 +128,7 @@ class ChatOrchestrationService:
             if not assistant_text:
                 raise ExternalServiceError("empty response from llm")
 
-            current_user = ChatMessage(role="user", content=user_message)
-            assistant_msg = ChatMessage(role="assistant", content=assistant_text)
-            compacted = trim_history_for_storage([*history, current_user, assistant_msg], self._max_history_turns)
-            await self._session_repo.set_history(session_id, compacted)
+            await self._store_turn(session_id, user_message, assistant_text)
 
             yield StreamEvent(event="done", data={"finish_reason": "stop", "usage": None})
         except DomainError as exc:
@@ -183,6 +177,21 @@ class ChatOrchestrationService:
                     }
                 },
             )
+
+    async def _store_turn(self, session_id: str, user_message: str, assistant_text: str) -> None:
+        """이번 턴만 덧붙인다.
+
+        히스토리 전체를 읽어 합친 뒤 덮어쓰면, 같은 세션에 요청이 겹쳤을 때
+        나중에 쓴 쪽이 상대 턴을 지운다. 트림은 저장소가 append 와 함께 처리한다.
+        """
+        await self._session_repo.append_messages(
+            session_id,
+            [
+                ChatMessage(role="user", content=user_message),
+                ChatMessage(role="assistant", content=assistant_text),
+            ],
+            max_messages=max(0, self._max_history_turns * 2),
+        )
 
     def _chunk_text(self, text: str) -> list[str]:
         if not text:
