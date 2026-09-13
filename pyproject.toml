@@ -28,3 +28,8 @@ pythonpath = ["."]
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+# flat layout 자동 탐색은 deploy/(SQL 마이그레이션)까지 패키지로 보고 빌드를 멈춘다.
+# 배포 대상은 app 패키지뿐이므로 명시한다.
+[tool.setuptools.packages.find]
+include = ["app*"]
