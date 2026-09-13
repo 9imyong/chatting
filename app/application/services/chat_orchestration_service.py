@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import logging
 from typing import Any, AsyncIterator, Optional
 
 from pydantic import BaseModel
 
 from app.application.services.history_builder import build_prompt_history, trim_history_for_storage
+from app.common.logging.logger import log_event
 from app.domain.entities.message import ChatMessage
 from app.domain.exceptions.errors import DomainError, ExternalServiceError, ValidationError
 from app.ports.outbound.llm_client import LLMClientPort
 from app.ports.outbound.session_repository import SessionRepositoryPort
 from app.ports.outbound.tts_client import TTSClientPort
+
+logger = logging.getLogger(__name__)
 
 
 class ChatResult(BaseModel):
@@ -134,6 +138,18 @@ class ChatOrchestrationService:
 
             yield StreamEvent(event="done", data={"finish_reason": "stop", "usage": None})
         except DomainError as exc:
+            log_event(
+                logger,
+                logging.WARNING,
+                "stream domain error",
+                session_id=session_id,
+                result="failure",
+                status="error",
+                stream_status="error",
+                error_code=getattr(exc, "error_code", "DOMAIN_ERROR"),
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+            )
             yield StreamEvent(
                 event="error",
                 data={
@@ -143,7 +159,21 @@ class ChatOrchestrationService:
                     }
                 },
             )
-        except Exception:
+        except Exception as exc:
+            # 트레이스를 남기지 않으면 스트리밍 실패 원인을 사후에 알 수 없다.
+            log_event(
+                logger,
+                logging.ERROR,
+                "stream unexpected error",
+                session_id=session_id,
+                result="failure",
+                status="error",
+                stream_status="error",
+                error_code="INTERNAL_ERROR",
+                error_type=type(exc).__name__,
+                error_message=str(exc),
+                exc_info=exc,
+            )
             yield StreamEvent(
                 event="error",
                 data={

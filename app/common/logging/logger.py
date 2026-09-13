@@ -39,7 +39,14 @@ class JsonFormatter(logging.Formatter):
             "retry_reason": extra_fields.get("retry_reason"),
             "stream_status": extra_fields.get("stream_status"),
             "disconnect_reason": extra_fields.get("disconnect_reason"),
+            "error_code": extra_fields.get("error_code"),
+            "error_type": extra_fields.get("error_type"),
+            "error_message": extra_fields.get("error_message"),
+            "status_code": extra_fields.get("status_code"),
         }
+        # 스택 트레이스가 없으면 500 원인을 추적할 수 없다. exc_info 가 실린 레코드만 포함.
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
 
 
@@ -53,7 +60,14 @@ def sanitize_fields(fields: dict[str, Any]) -> dict[str, Any]:
 
 
 def log_event(logger: logging.Logger, level: int, message: str, **fields: Any) -> None:
-    logger.log(level, message, extra={"event_fields": sanitize_fields(fields)})
+    # exc_info 는 로깅 프레임워크 인자이지 이벤트 필드가 아니므로 분리해서 전달한다.
+    exc_info = fields.pop("exc_info", None)
+    logger.log(
+        level,
+        message,
+        extra={"event_fields": sanitize_fields(fields)},
+        exc_info=exc_info,
+    )
 
 
 def configure_logging(level: str = "INFO") -> None:

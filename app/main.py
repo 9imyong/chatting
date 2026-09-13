@@ -87,14 +87,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(DomainError)
     async def domain_exception_handler(request: Request, exc: DomainError):
-        log_event(
-            logger,
-            logging.ERROR,
-            "domain exception",
-            path=request.url.path,
-            status="error",
-            result="failure",
-        )
         # 구체 타입을 먼저 검사하고, InfraError 는 남은 인프라 계열 전부를 받는다.
         # SessionStoreError 처럼 ExternalServiceError 가 아닌 InfraError 하위 예외가
         # 기본값 400 으로 떨어지면 DB 장애가 클라이언트 오류로 보고된다.
@@ -109,6 +101,20 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             status_code = 429
         elif isinstance(exc, InfraError):
             status_code = 503
+
+        log_event(
+            logger,
+            logging.ERROR,
+            "domain exception",
+            path=request.url.path,
+            status="error",
+            result="failure",
+            error_code=getattr(exc, "error_code", "DOMAIN_ERROR"),
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            status_code=status_code,
+            exc_info=exc if status_code >= 500 else None,
+        )
         return JSONResponse(
             status_code=status_code,
             content={
@@ -130,6 +136,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             path=request.url.path,
             status="error",
             result="failure",
+            error_type=type(exc).__name__,
+            error_message=str(exc),
+            status_code=500,
+            exc_info=exc,
         )
         return JSONResponse(
             status_code=500,
