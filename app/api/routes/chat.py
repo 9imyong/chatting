@@ -128,13 +128,52 @@ async def chat_stream(
             status="ok",
             stream_status="start",
         )
+        # 이벤트가 도착한 뒤에만 경과 시간을 보면, 업스트림이 토큰을 하나도 내놓지
+        # 않고 멈춘 경우 검사 지점에 영영 도달하지 못한다. 타임아웃이 정작 필요한
+        # 상황에서 동작하지 않으므로 "다음 이벤트 대기" 자체에 남은 예산을 건다.
+        stream = service.stream_chat(
+            session_id=payload.session_id,
+            user_message=payload.message,
+            request_id=request_id,
+            trace_id=trace_id,
+        )
         try:
-            async for event in service.stream_chat(
-                session_id=payload.session_id,
-                user_message=payload.message,
-                request_id=request_id,
-                trace_id=trace_id,
-            ):
+            while True:
+                remaining = stream_timeout_sec - (time.perf_counter() - started)
+                if remaining <= 0:
+                    result = "timeout"
+                    observe_stream_error("STREAM_TIMEOUT")
+                    yield _format_sse(
+                        "error",
+                        {"error": {"code": "STREAM_TIMEOUT", "message": "stream timeout exceeded"}},
+                    )
+                    break
+
+                try:
+                    event = await asyncio.wait_for(stream.__anext__(), timeout=remaining)
+                except StopAsyncIteration:
+                    break
+                except asyncio.TimeoutError:
+                    result = "timeout"
+                    observe_stream_error("STREAM_TIMEOUT")
+                    log_event(
+                        logger,
+                        logging.WARNING,
+                        "stream timeout exceeded",
+                        tenant_id=access.tenant_id,
+                        session_id=payload.session_id,
+                        path=path,
+                        result="timeout",
+                        status="error",
+                        stream_status="timeout",
+                        error_code="STREAM_TIMEOUT",
+                    )
+                    yield _format_sse(
+                        "error",
+                        {"error": {"code": "STREAM_TIMEOUT", "message": "stream timeout exceeded"}},
+                    )
+                    break
+
                 if await request.is_disconnected():
                     result = "disconnect"
                     observe_stream_disconnect("client_disconnected")
@@ -149,16 +188,6 @@ async def chat_stream(
                         status="cancelled",
                         stream_status="disconnected",
                         disconnect_reason="client_disconnected",
-                    )
-                    break
-
-                elapsed = time.perf_counter() - started
-                if elapsed > stream_timeout_sec:
-                    result = "timeout"
-                    observe_stream_error("INTERNAL_ERROR")
-                    yield _format_sse(
-                        "error",
-                        {"error": {"code": "INTERNAL_ERROR", "message": "stream timeout exceeded"}},
                     )
                     break
 
@@ -187,6 +216,8 @@ async def chat_stream(
                 disconnect_reason="client_cancelled",
             )
         finally:
+            # 타임아웃/끊김으로 중간에 빠져나온 경우에도 업스트림 연결을 정리한다.
+            await stream.aclose()
             duration = time.perf_counter() - started
             observe_stream_request(result, duration)
             stream_connection_closed()
