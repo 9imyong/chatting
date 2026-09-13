@@ -37,15 +37,34 @@ async def chat(
 ) -> ChatResponse:
     started = time.perf_counter()
     generate_audio = payload.response_mode == "text_audio"
-    result = await service.chat(
-        session_id=payload.session_id,
-        user_message=payload.message,
-        generate_audio=generate_audio,
-        voice_id=payload.voice_id,
-        speaker=payload.speaker,
-        language=payload.language,
-        reference_audio_url=payload.reference_audio_url,
-    )
+    try:
+        result = await service.chat(
+            session_id=payload.session_id,
+            user_message=payload.message,
+            generate_audio=generate_audio,
+            voice_id=payload.voice_id,
+            speaker=payload.speaker,
+            language=payload.language,
+            reference_audio_url=payload.reference_audio_url,
+        )
+    except Exception as exc:
+        # 실패를 기록하지 않으면 failure 라벨이 항상 0 이라 에러율을 계산할 수 없다.
+        # 응답 변환은 앱 레벨 예외 핸들러가 담당하므로 그대로 다시 던진다.
+        observe_chat_request(payload.response_mode, "failure", time.perf_counter() - started)
+        log_event(
+            logger,
+            logging.WARNING,
+            "chat request failed",
+            tenant_id=access.tenant_id,
+            session_id=payload.session_id,
+            path="/api/v1/chat",
+            latency_ms=round((time.perf_counter() - started) * 1000, 2),
+            result="failure",
+            status="error",
+            error_code=getattr(exc, "error_code", "INTERNAL_ERROR"),
+            error_type=type(exc).__name__,
+        )
+        raise
 
     duration = time.perf_counter() - started
     observe_chat_request(payload.response_mode, "success", duration)
